@@ -1,0 +1,278 @@
+{
+  "name": "InsuranceBRDGenerator",
+  "state": {
+    "type": "json_schema",
+    "json_schema": {
+      "type": "object",
+      "required": [
+        "transcript"
+      ],
+      "properties": {
+        "transcript": {
+          "type": "string",
+          "description": "The raw stakeholder meeting transcript text to be analysed. Upload or paste the transcript as plain text (.txt) — binary Word documents (.docx) cannot be read."
+        }
+      }
+    }
+  },
+  "schema": "crewai.flow/v1",
+  "methods": {
+    "qa_review": {
+      "do": {
+        "call": "agent",
+        "with": {
+          "goal": "Rigorously review drafted business requirements for completeness, clarity, testability, and internal consistency, and produce a structured pass/fail verdict with actionable feedback.",
+          "role": "Requirements Quality Assurance Reviewer",
+          "input": "Review the following requirements document for the Digital Policy Change Request System against these four quality criteria:\n\n1. COMPLETENESS: Does each requirement fully describe what is needed, with no missing detail that can be derived from the transcript?\n2. CLARITY: Is each requirement unambiguous and understandable by a developer and a tester?\n3. TESTABILITY: Can each requirement be verified by a test? Does it avoid subjective terms like 'fast', 'easy', 'user-friendly' without measurable criteria?\n4. CONSISTENCY: Do requirements contradict each other? Does any requirement conflict with a stated business rule?\n\nIMPORTANT: Only flag issues that can actually be fixed from the stakeholder transcript. Many items (e.g., specific phone/email verification methods, documentation matrix file-type details, exact address-processing rules, final status approval) are genuinely unresolved in the transcript and cannot be specified yet. Do NOT flag these as failures \\ \\ instead, note them as items that require stakeholder follow-up and accept the requirement as written.\n\nFor each requirement that FAILS any criterion because it CAN be fixed from transcript information:\n- State the requirement ID.\n- State which criterion(ia) it fails.\n- State exactly what must be changed.\n\nAt the end, produce a single overall verdict on a line by itself in this exact format:\nVERDICT: PASS\nor\nVERDICT: REVISION_NEEDED\n\nOnly issue REVISION_NEEDED if there are fixable issues. If the only gaps are genuine real-world unknowns that cannot be resolved from the transcript, issue VERDICT: PASS.\n\nREQUIREMENTS DOCUMENT:\n${outputs.draft_requirements.raw}\n\nExpected output: A QA Review Report listing every fixable requirement issue with specific, actionable feedback, followed by a final line reading either VERDICT: PASS or VERDICT: REVISION_NEEDED. Genuine real-world gaps that cannot be resolved from the transcript are noted but do not trigger REVISION_NEEDED. If the input contains NO DATA, state that no requirements were available to review and output VERDICT: REVISION_NEEDED.",
+          "verbose": true,
+          "backstory": "You are a senior QA specialist in requirements engineering for insurance digital systems. You apply industry-standard quality criteria to every requirement and produce objective, actionable feedback. You work only from the requirements document provided and never introduce external knowledge or invented issues.",
+          "inject_date": true,
+          "llm": "openai/gpt-5.6-luna"
+        }
+      },
+      "start": false,
+      "listen": "draft_requirements",
+      "router": false,
+      "description": "A QA agent checks the drafted requirements for completeness, clarity, testability, and consistency, and marks any that need revision. Outputs a structured verdict used by the router."
+    },
+    "re_review": {
+      "do": {
+        "call": "agent",
+        "with": {
+          "goal": "Re-review the revised requirements document against completeness, clarity, testability, and consistency criteria and produce an updated pass/fail verdict.",
+          "role": "Requirements Quality Assurance Reviewer",
+          "input": "Re-review the following REVISED requirements document for the Digital Policy Change Request System against these four quality criteria:\n\n1. COMPLETENESS: Does each requirement fully describe what is needed?\n2. CLARITY: Is each requirement unambiguous and understandable?\n3. TESTABILITY: Can each requirement be verified by a test?\n4. CONSISTENCY: Do requirements contradict each other or any stated business rule?\n\nIMPORTANT RULE: Any requirement marked PENDING STAKEHOLDER INPUT with a clear statement of what decision is needed shall be accepted as complete for QA purposes \\ \\ the missing detail is a real-world gap, not a drafting failure. Do NOT flag these as failing. Focus only on requirements that are genuinely unclear, incomplete without explanation, or inconsistent.\n\nFor each requirement that still FAILS any criterion:\n- State the requirement ID.\n- State which criterion(ia) it fails.\n- State exactly what must be changed.\n\nAt the end, produce a single overall verdict on a line by itself in this exact format:\nVERDICT: PASS\nor\nVERDICT: REVISION_NEEDED\n\nOnly issue REVISION_NEEDED if there are requirements that genuinely fail and are fixable from the available information. If the only remaining issues are real-world gaps properly marked PENDING STAKEHOLDER INPUT, issue VERDICT: PASS.\n\nREVISED REQUIREMENTS DOCUMENT:\n${outputs.revise_requirements.raw}\n\nExpected output: A QA Re-Review Report listing any remaining requirements that fail quality criteria with specific actionable feedback, followed by a final line reading either VERDICT: PASS or VERDICT: REVISION_NEEDED. Requirements marked PENDING STAKEHOLDER INPUT are not failures and must not be flagged.",
+          "verbose": true,
+          "backstory": "You are a senior QA specialist in requirements engineering for insurance digital systems. You apply consistent quality criteria on every review cycle. You work only from the revised requirements document provided and never introduce external knowledge or invented issues.",
+          "inject_date": true,
+          "llm": "openai/gpt-5.6-luna"
+        }
+      },
+      "start": false,
+      "listen": "revise_requirements",
+      "router": false,
+      "description": "Re-runs quality review on the revised requirements document using the same QA criteria, producing a fresh verdict for the router to evaluate again."
+    },
+    "package_brd": {
+      "do": {
+        "call": "agent",
+        "with": {
+          "goal": "Assemble all analysis outputs into a single, complete, professionally formatted Business Requirements Document for the Digital Policy Change Request System.",
+          "role": "BRD Document Assembler",
+          "input": "Assemble the following content into a complete Business Requirements Document (BRD) for the insurance company's Digital Policy Change Request System. Use the structure below exactly.\n\n---\nBUSINESS REQUIREMENTS DOCUMENT\nProject: Digital Policy Change Request System\nPrepared by: AI Business Analysis System\nStatus: APPROVED\n---\n\n1. EXECUTIVE SUMMARY\n Write a concise summary (3-5 sentences) of the project purpose and scope based on the confirmed needs and requirements below.\n\n2. PROJECT SCOPE\n 2a. IN SCOPE: List all confirmed in-scope items from the classified content.\n 2b. OUT OF SCOPE: List all items explicitly identified as out of scope.\n\n3. STAKEHOLDER ASSUMPTIONS\n List all assumptions identified in the classified transcript content.\n\n4. OPEN QUESTIONS AND RISKS\n List all unresolved questions. Note that these require stakeholder follow-up before development begins.\n\n5. CONFLICT AND AMBIGUITY RESOLUTION LOG\n Include the full conflict resolution log.\n\n6. FUNCTIONAL REQUIREMENTS\n Include all FR-xxx requirements with their SOURCE traces.\n\n7. NON-FUNCTIONAL REQUIREMENTS\n Include all NFR-xxx requirements with their SOURCE traces.\n\n8. BUSINESS RULES\n Include all BR-xxx rules with their SOURCE traces.\n\n9. REQUIREMENTS GAPS AND NOTES\n Include any gaps or notes flagged during requirements writing and QA review.\n\n10. DOCUMENT APPROVAL\n State that this document was produced and quality-reviewed by the AI Business Analysis System and is ready for stakeholder sign-off.\n\n---\nSOURCE MATERIALS:\n\nCLASSIFIED TRANSCRIPT CONTENT:\n${outputs.analyse_transcript.raw}\n\nCONFLICT RESOLUTION LOG:\n${outputs.resolve_conflicts.raw}\n\nAPPROVED REQUIREMENTS (with traceability):\n${outputs.draft_requirements.raw}\n\nQA REVIEW SUMMARY:\n${outputs.qa_review.raw}\n\nExpected output: A complete, formatted Business Requirements Document following the 10-section structure above, ready for stakeholder review and sign-off. If any input section contains NO DATA, note it clearly under the relevant section heading rather than omitting the section.",
+          "verbose": true,
+          "backstory": "You are a senior business analyst and technical writer specialising in producing publication-ready BRDs for insurance digital transformation projects. You organise complex analysis outputs into clear, navigable documents that project managers, developers, and QA teams can act on immediately. You work only from the content provided to you and never add external information or invented requirements.",
+          "inject_date": true,
+          "llm": "openai/gpt-5.6-luna"
+        }
+      },
+      "listen": "requirements_approved",
+      "router": false,
+      "description": "Final packaging agent that assembles the approved requirements, conflict-resolution log, assumptions list, open questions, and out-of-scope register into a complete, formatted Business Requirements Document — triggered when requirements pass on the first QA review."
+    },
+    "route_on_verdict": {
+      "do": {
+        "call": "expression",
+        "expr": "outputs.qa_review.raw.contains('VERDICT: PASS') ? 'requirements_approved' : 'needs_revision'"
+      },
+      "emit": [
+        "requirements_approved",
+        "needs_revision"
+      ],
+      "listen": "qa_review",
+      "router": true,
+      "description": "Router that reads the first QA verdict and emits 'requirements_approved' if all requirements pass, or 'needs_revision' to trigger the revision cycle."
+    },
+    "resolve_conflicts": {
+      "do": {
+        "call": "agent",
+        "with": {
+          "goal": "Identify every contradiction between stakeholder positions in the classified transcript content, assess the implications of each conflict, and produce reasoned recommendations that unblock requirements writing.",
+          "role": "Requirements Conflict Resolver",
+          "input": "Review the following classified stakeholder transcript content. Your task is to:\n1. Identify every CONFLICTING OPINION and every AMBIGUOUS STATEMENT that could cause contradictions.\n2. For each conflict, state: (a) what each side said, (b) why it matters for requirements, (c) your recommended resolution with reasoning.\n3. For each ambiguity, state: (a) the ambiguous statement, (b) the possible interpretations, (c) your recommended clarification with reasoning.\n4. List any UNRESOLVED QUESTIONS that must be answered before requirements can be finalised.\n\nDo not invent positions, facts, or information not present in the classified content below.\n\nCLASSIFIED TRANSCRIPT CONTENT:\n${outputs.analyse_transcript.raw}\n\nExpected output: A Conflict and Ambiguity Resolution Log with three sections: (1) CONFLICTS — each numbered, with stakeholder positions, implications, and recommended resolution; (2) AMBIGUITIES — each numbered, with possible interpretations and recommended clarification; (3) OPEN QUESTIONS — a numbered list of questions requiring stakeholder follow-up. If the input contains NO DATA, state clearly that no transcript content was available for analysis and no resolution log can be produced.",
+          "verbose": true,
+          "backstory": "You are a neutral, evidence-based mediator specialising in resolving stakeholder disagreements in insurance software projects. You never take sides, never invent information, and always ground your recommendations in what the stakeholders actually said. You work only from the classified content provided to you.",
+          "inject_date": true,
+          "llm": "openai/gpt-5.6-luna"
+        }
+      },
+      "listen": "analyse_transcript",
+      "router": false,
+      "description": "A single agent reviews the classified content, flags contradictions between stakeholders, and produces a conflict-resolution log with reasoned recommendations for each item."
+    },
+    "analyse_transcript": {
+      "do": {
+        "call": "crew",
+        "with": {
+          "tasks": [
+            {
+              "name": "classify_transcript",
+              "agent": "business_analyst",
+              "description": "Read the following stakeholder meeting transcript in full and classify every distinct statement or idea into one of these nine categories:\n1. CONFIRMED NEEDS: Things stakeholders explicitly agreed are required.\n2. PROPOSED SOLUTIONS: Specific solution ideas or technical approaches suggested.\n3. CONFLICTING OPINIONS: Points where two or more stakeholders expressed opposing views.\n4. AMBIGUOUS STATEMENTS: Statements that are unclear, vague, or could be interpreted multiple ways.\n5. ASSUMPTIONS: Things stated as if true but not verified or agreed upon.\n6. UNRESOLVED QUESTIONS: Open questions that were raised but not answered.\n7. BUSINESS RULES: Explicit rules governing how the system must behave (e.g. who can change what, under what conditions).\n8. CONSTRAINTS: Limitations such as technical, regulatory, time, or budget constraints.\n9. OUT OF SCOPE: Items explicitly identified as not part of this project.\n\nFor each item, quote or closely paraphrase the source text and label it with its category. Do not invent, infer, or add anything not present in the transcript.\n\nTRANSCRIPT:\n{transcript}",
+              "expected_output": "A structured, labelled list of all classified statements from the transcript, grouped by category. Each entry cites the source statement. If the transcript is empty or missing, output exactly: NO DATA: transcript returned nothing"
+            },
+            {
+              "name": "validate_classification",
+              "agent": "domain_expert",
+              "description": "Review the classified transcript content produced by the business analyst in the previous task. The classification is available in the task context above. Also read the original transcript using the read_file tool with file name \"transcript\" if you need to verify any item against the source.\n\nCheck that:\n- Business rules and constraints are correctly identified (not confused with needs or solutions).\n- Insurance-specific compliance or regulatory references are correctly categorised.\n- Any items that cross categories are noted.\n- No items were missed or mis-labelled.\n\nProvide a validated, corrected version of the classification. Work only from the transcript and the classification provided in context; do not add external knowledge.",
+              "expected_output": "A final validated classification document with all nine categories clearly headed, each item labelled, and a short validation note where corrections were made. If the classification input contains NO DATA, output exactly: NO DATA: transcript returned nothing"
+            }
+          ],
+          "agents": {
+            "domain_expert": {
+              "goal": "Review the classified transcript content for domain accuracy and ensure insurance-specific regulatory and operational nuances are correctly identified.",
+              "role": "Insurance Domain Expert",
+              "verbose": true,
+              "backstory": "You have 15 years of experience in insurance operations, compliance, and digital transformation. You validate that business rules, constraints, and regulatory references extracted from stakeholder discussions are correctly labelled and complete. You work only from the transcript and classified content provided to you.",
+              "inject_date": true,
+              "llm": "openai/gpt-5.6-luna"
+            },
+            "business_analyst": {
+              "goal": "Extract and classify every statement in the stakeholder transcript into structured categories that will form the foundation of a Business Requirements Document.",
+              "role": "Senior Business Analyst",
+              "verbose": true,
+              "backstory": "You are a seasoned business analyst with deep experience in insurance industry projects. You read stakeholder transcripts with precision, identifying exactly what was said and never inferring beyond the text. You work only from the transcript provided and never invent or assume information that is not explicitly stated.",
+              "inject_date": true,
+              "llm": "openai/gpt-5.6-luna"
+            }
+          },
+          "inputs": {
+            "transcript": "${state.transcript}"
+          },
+          "verbose": true
+        }
+      },
+      "start": true,
+      "router": false,
+      "description": "A crew of analysts reads the stakeholder transcript and classifies every statement by type: confirmed needs, proposed solutions, conflicting opinions, ambiguous statements, assumptions, unresolved questions, business rules, constraints, and out-of-scope items."
+    },
+    "draft_requirements": {
+      "do": {
+        "call": "crew",
+        "with": {
+          "tasks": [
+            {
+              "name": "write_requirements",
+              "agent": "requirements_writer",
+              "description": "Using the classified transcript content and the conflict resolution log below, write a complete set of numbered business requirements for the Digital Policy Change Request System.\n\nStructure your output as follows:\n\nFUNCTIONAL REQUIREMENTS (FR)\nFR-001: [Requirement statement]\nFR-002: [Requirement statement]\n... (continue for all functional requirements)\n\nNON-FUNCTIONAL REQUIREMENTS (NFR)\nNFR-001: [Requirement statement]\nNFR-002: [Requirement statement]\n... (continue for all non-functional requirements)\n\nBUSINESS RULES (BR)\nBR-001: [Rule statement]\n... (continue for all business rules)\n\nRules:\n- Write each requirement in \"The system shall...\" or \"The user shall...\" format.\n- Base requirements ONLY on CONFIRMED NEEDS, resolved conflicts, and validated business rules from the input.\n- Do not include assumptions or unresolved questions as requirements — flag them separately.\n- Do not invent requirements not supported by the source material.\n\nCLASSIFIED CONTENT:\n{classified_content}\n\nCONFLICT RESOLUTION LOG:\n{conflict_resolution_log}",
+              "expected_output": "A structured requirements document with numbered Functional Requirements (FR), Non-Functional Requirements (NFR), and Business Rules (BR), each written in a testable format. If the input contains NO DATA, output exactly: NO DATA: transcript returned nothing"
+            },
+            {
+              "name": "add_traceability",
+              "agent": "traceability_analyst",
+              "description": "Review the drafted requirements produced by the previous task and add a traceability reference to every requirement, linking it back to the stakeholder statement or classified item that supports it.\n\nFormat each requirement as:\nFR-001: [Requirement text] | SOURCE: [Quote or paraphrase from transcript/classification]\n\nAlso produce a GAPS section listing any CONFIRMED NEEDS or resolved conflicts from the classified content that were NOT addressed by a requirement, with a brief explanation of why they were omitted or need clarification.\n\nCLASSIFIED CONTENT:\n{classified_content}",
+              "expected_output": "The full requirements document with a SOURCE trace appended to every requirement, plus a GAPS section identifying any unaddressed confirmed needs. If the input contains NO DATA, output exactly: NO DATA: transcript returned nothing"
+            }
+          ],
+          "agents": {
+            "requirements_writer": {
+              "goal": "Transform validated stakeholder needs and resolved conflicts into clear, testable, numbered business requirements for the Digital Policy Change Request System.",
+              "role": "Requirements Engineer",
+              "verbose": true,
+              "backstory": "You are a certified requirements engineer with deep experience writing BRDs for insurance digital transformation projects. You write requirements that are unambiguous, complete, and testable. Every requirement you write traces directly to a stakeholder statement. You never add requirements that are not supported by the input content.",
+              "inject_date": true,
+              "llm": "openai/gpt-5.6-luna"
+            },
+            "traceability_analyst": {
+              "goal": "Ensure every written requirement links back to a specific source in the stakeholder transcript, and that no confirmed need or resolved conflict has been missed.",
+              "role": "Traceability Analyst",
+              "verbose": true,
+              "backstory": "You specialise in requirements traceability for regulated industries. You cross-check every requirement against the source material and add a traceability reference to each one. You work only from the content provided and never introduce external information.",
+              "inject_date": true,
+              "llm": "openai/gpt-5.6-luna"
+            }
+          },
+          "inputs": {
+            "classified_content": "${outputs.analyse_transcript.raw}",
+            "conflict_resolution_log": "${outputs.resolve_conflicts.raw}"
+          },
+          "verbose": true
+        }
+      },
+      "start": false,
+      "listen": "resolve_conflicts",
+      "router": false,
+      "description": "A requirements-writing crew transforms the confirmed, resolved, and classified content into structured, numbered functional and non-functional requirements with full traceability back to the transcript."
+    },
+    "route_on_re_review": {
+      "do": {
+        "call": "expression",
+        "expr": "outputs.re_review.raw.contains('VERDICT: PASS') ? 'revised_requirements_approved' : 'needs_revision'"
+      },
+      "emit": [
+        "revised_requirements_approved",
+        "needs_revision"
+      ],
+      "start": false,
+      "listen": "re_review",
+      "router": true,
+      "description": "Router that reads the re-review verdict and emits 'revised_requirements_approved' if all requirements now pass, or 'needs_revision' to loop back for another targeted rewrite."
+    },
+    "revise_requirements": {
+      "do": {
+        "call": "crew",
+        "with": {
+          "tasks": [
+            {
+              "name": "rewrite_flagged",
+              "agent": "revision_writer",
+              "description": "Rewrite the requirements listed as failing in the QA feedback below. Apply the specific changes requested for each requirement ID. Leave all other requirements exactly as they are. Output the complete requirements document (all requirements, revised and unchanged) in the same format as the original.\n\nIMPORTANT: For any QA issue that cannot be resolved from the transcript alone (e.g., phone/email verification methods, documentation matrix, address-processing rules, status finalization), explicitly mark that requirement as PENDING STAKEHOLDER INPUT and state what decision is needed — do not leave the issue unresolved without explanation.\n\nORIGINAL REQUIREMENTS DOCUMENT:\n{requirements}\n\nQA FEEDBACK:\n{qa_feedback}",
+              "expected_output": "The complete revised requirements document (FR, NFR, BR sections) with targeted fixes applied to all flagged items. For items that cannot be resolved from available information, each is marked PENDING STAKEHOLDER INPUT with a clear statement of what is needed. Unchanged requirements are reproduced verbatim. If input contains NO DATA, output exactly: NO DATA: transcript returned nothing"
+            },
+            {
+              "name": "check_revision_completeness",
+              "agent": "revision_checker",
+              "description": "Compare the revised requirements document (produced by the previous task) against the QA feedback below. For each issue the QA reviewer raised, confirm whether it has been resolved in the revision or marked PENDING STAKEHOLDER INPUT with a clear explanation. Produce a short checklist: [RESOLVED], [PENDING STAKEHOLDER INPUT], or [STILL OPEN] for each QA issue, and output the final revised requirements document in full.\n\nQA FEEDBACK TO CHECK AGAINST:\n{qa_feedback}",
+              "expected_output": "A checklist showing [RESOLVED], [PENDING STAKEHOLDER INPUT], or [STILL OPEN] for each QA issue, followed by the complete, final revised requirements document ready for re-review."
+            }
+          ],
+          "agents": {
+            "revision_writer": {
+              "goal": "Rewrite only the requirements flagged by the QA reviewer, addressing every point of feedback precisely without altering requirements that passed review.",
+              "role": "Requirements Revision Specialist",
+              "verbose": true,
+              "backstory": "You are a precise requirements engineer who specialises in targeted revisions. You read QA feedback carefully and rewrite exactly what needs changing. You never introduce information not present in the original requirements or the stakeholder content.",
+              "inject_date": true,
+              "llm": "openai/gpt-5.6-luna"
+            },
+            "revision_checker": {
+              "goal": "Verify that every QA issue raised has been addressed in the revised requirements document and that no previously passing requirements were accidentally changed.",
+              "role": "Revision Completeness Checker",
+              "verbose": true,
+              "backstory": "You are a meticulous checker who compares revised requirements against QA feedback item by item. You confirm that every flagged issue has a clear fix and that the rest of the document is intact. You work only from the documents provided.",
+              "inject_date": true,
+              "llm": "openai/gpt-5.6-luna"
+            }
+          },
+          "inputs": {
+            "qa_feedback": "${outputs.qa_review.raw}",
+            "requirements": "${outputs.draft_requirements.raw}"
+          },
+          "verbose": true
+        }
+      },
+      "start": false,
+      "listen": "needs_revision",
+      "router": false,
+      "description": "When QA flags revisions needed, a targeted rewrite crew uses the QA feedback to correct only the failing requirements, then passes the revised document back for re-review."
+    },
+    "package_brd_after_revision": {
+      "do": {
+        "call": "agent",
+        "with": {
+          "goal": "Assemble all analysis outputs, including revised and re-reviewed requirements, into a single, complete, professionally formatted Business Requirements Document for the Digital Policy Change Request System.",
+          "role": "BRD Document Assembler",
+          "input": "Assemble the following content into a complete Business Requirements Document (BRD) for the insurance company's Digital Policy Change Request System. Use the structure below exactly.\n\n---\nBUSINESS REQUIREMENTS DOCUMENT\nProject: Digital Policy Change Request System\nPrepared by: AI Business Analysis System\nStatus: APPROVED (after revision cycle)\n---\n\n1. EXECUTIVE SUMMARY\n Write a concise summary (3-5 sentences) of the project purpose and scope based on the confirmed needs and requirements below.\n\n2. PROJECT SCOPE\n 2a. IN SCOPE: List all confirmed in-scope items from the classified content.\n 2b. OUT OF SCOPE: List all items explicitly identified as out of scope.\n\n3. STAKEHOLDER ASSUMPTIONS\n List all assumptions identified in the classified transcript content.\n\n4. OPEN QUESTIONS AND RISKS\n List all unresolved questions. Note that these require stakeholder follow-up before development begins.\n\n5. CONFLICT AND AMBIGUITY RESOLUTION LOG\n Include the full conflict resolution log.\n\n6. FUNCTIONAL REQUIREMENTS\n Include all FR-xxx requirements (from the revised document) with their SOURCE traces.\n\n7. NON-FUNCTIONAL REQUIREMENTS\n Include all NFR-xxx requirements (from the revised document) with their SOURCE traces.\n\n8. BUSINESS RULES\n Include all BR-xxx rules (from the revised document) with their SOURCE traces.\n\n9. REQUIREMENTS GAPS AND NOTES\n Include any gaps or notes flagged during requirements writing and both QA review cycles.\n\n10. DOCUMENT APPROVAL\n State that this document was produced, quality-reviewed, revised, and re-reviewed by the AI Business Analysis System and is ready for stakeholder sign-off.\n\n---\nSOURCE MATERIALS:\n\nCLASSIFIED TRANSCRIPT CONTENT:\n${outputs.analyse_transcript.raw}\n\nCONFLICT RESOLUTION LOG:\n${outputs.resolve_conflicts.raw}\n\nAPPROVED REVISED REQUIREMENTS (with traceability):\n${outputs.revise_requirements.raw}\n\nINITIAL QA REVIEW:\n${outputs.qa_review.raw}\n\nRE-REVIEW SUMMARY:\n${outputs.re_review.raw}\n\nExpected output: A complete, formatted Business Requirements Document following the 10-section structure above, incorporating the revised and re-approved requirements, ready for stakeholder review and sign-off. If any input section contains NO DATA, note it clearly under the relevant section heading rather than omitting the section.",
+          "verbose": true,
+          "backstory": "You are a senior business analyst and technical writer specialising in producing publication-ready BRDs for insurance digital transformation projects. You organise complex analysis outputs into clear, navigable documents that project managers, developers, and QA teams can act on immediately. You work only from the content provided to you and never add external information or invented requirements.",
+          "inject_date": true,
+          "llm": "openai/gpt-5.6-luna"
+        }
+      },
+      "listen": "revised_requirements_approved",
+      "router": false,
+      "description": "Final packaging agent that assembles the approved revised requirements into the complete BRD — triggered when requirements pass after the revision and re-review cycle."
+    }
+  },
+  "description": "AI-assisted business analysis system that processes stakeholder meeting transcripts for an insurance company's Digital Policy Change Request System and produces a complete, evidence-based Business Requirements Document (BRD)."
+}

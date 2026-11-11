@@ -1,0 +1,22 @@
+# Credentials and environment
+.env
+.env.*
+!.env.example
+
+# Python environment and cache
+.venv/
+__pycache__/
+*.pyc
+
+# CrewAI generated files
+.crewai/
+output/
+
+# Local test transcripts and generated BRDs
+# MeetingTranscript-*.docx
+# *.docx
+
+# Editor and operating system files
+.vscode/
+.DS_Store
+Thumbs.db

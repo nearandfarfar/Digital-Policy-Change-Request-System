@@ -1,0 +1,207 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>CrewAI BRD Generator</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f2f5f9;
+    margin: 0;
+    padding: 30px;
+    color: #263445;
+}
+
+.container {
+    max-width: 850px;
+    margin: auto;
+}
+
+header {
+    background: #173452;
+    color: white;
+    padding: 28px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+}
+
+header h1 {
+    margin: 0 0 8px;
+}
+
+.card {
+    background: white;
+    padding: 26px;
+    margin-bottom: 22px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px #00000012;
+}
+
+input[type="file"] {
+    display: block;
+    margin: 20px 0;
+}
+
+button {
+    background: #1768a8;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+button:disabled {
+    background: #999;
+    cursor: not-allowed;
+}
+
+#status {
+    margin-top: 18px;
+    font-weight: bold;
+}
+
+#result {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    background: #f7f9fc;
+    padding: 18px;
+    border-radius: 6px;
+    max-height: 550px;
+    overflow-y: auto;
+}
+
+.error {
+    color: #b42318;
+}
+
+a.download {
+    display: inline-block;
+    margin-top: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<header>
+    <h1>Digital Policy Change Request System</h1>
+    <p>AI-Powered Business Requirements Generator</p>
+    <small>Powered by CrewAI, Flask, and OpenAI</small>
+</header>
+
+<section class="card">
+    <h2>Upload Meeting Transcript</h2>
+
+    <p>Select a Word document containing your
+       stakeholder meeting transcript.</p>
+
+    <input type="file" id="document"
+           accept=".docx">
+
+    <button id="generateBtn" onclick="uploadDocument()">
+        Generate BRD
+    </button>
+
+    <div id="status" role="status" aria-live="polite"></div>
+</section>
+
+<section class="card">
+    <h2>Generated Business Requirements Document</h2>
+
+    <div id="result">
+        Your generated BRD will appear here.
+    </div>
+
+    <a id="downloadLink" class="download"
+       style="display:none">
+       Download BRD
+    </a>
+</section>
+
+</div>
+
+<script>
+async function uploadDocument() {
+
+    const fileInput = document.getElementById("document");
+    const button = document.getElementById("generateBtn");
+    const status = document.getElementById("status");
+    const result = document.getElementById("result");
+    const downloadLink = document.getElementById("downloadLink");
+
+    if (!fileInput.files.length) {
+        alert("Please select a DOCX file.");
+        return;
+    }
+
+    const file = fileInput.files[0];
+
+    if (!file.name.toLowerCase().endsWith(".docx")) {
+        alert("Only DOCX files are supported.");
+        return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+        alert("File must be 5 MB or smaller.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    button.disabled = true;
+    status.className = "";
+    status.textContent = "CrewAI is processing your document...";
+    result.textContent = "Please wait...";
+    downloadLink.style.display = "none";
+
+    try {
+        const response = await fetch("/upload", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.status !== "success") {
+            throw new Error(
+                data.message || data.error || "Processing failed"
+            );
+        }
+
+        result.textContent = data.result;
+        status.textContent = "BRD generated successfully!";
+
+        // Create a downloadable text file.
+        const blob = new Blob(
+            [data.result],
+            {type: "text/plain;charset=utf-8"}
+        );
+
+        const url = URL.createObjectURL(blob);
+
+        downloadLink.href = url;
+        downloadLink.download = "Generated_BRD.txt";
+        downloadLink.style.display = "inline-block";
+
+    } catch (error) {
+        status.className = "error";
+        status.textContent = "Error: " + error.message;
+        result.textContent = "No result available.";
+
+    } finally {
+        button.disabled = false;
+    }
+}
+</script>
+
+</body>
+</html>
